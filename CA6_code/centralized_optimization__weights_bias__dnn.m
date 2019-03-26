@@ -83,9 +83,11 @@ for t = 1:nrof_mini_batches % [parallelize this loop for decentralized set-up]
             kk_outer            = t; % valid for sequential
             [W, b, step_struct] = sgd(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers);
         case 'rmsprop'
-            error('not supported yet');
+            kk_outer            = t; % valid for sequential
+            [W, b, step_struct] = rmsprop(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers);
         case 'adagrad'
-            error('not supported yet');
+            kk_outer            = t; % valid for sequential
+            [W, b, step_struct] = adagrad(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers);
         case 'adam'
             error('not supported yet');
     end

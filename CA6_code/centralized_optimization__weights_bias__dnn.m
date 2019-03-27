@@ -1,14 +1,14 @@
 function [W, b, grad_struct, E_abs_square_avg, avg_index] ...
-            = centralized_optimization__weights_bias__dnn(X_train, Y_train, n_train, mini_batch_size, mini_batch_rng_gen, ...
-                                                        X_test,y_test,n_test,...
-                                                        W, b, bias_enable_flag, batch_norm_flag, ...
-                                                        z, z_prime, h,...
-                                                        a_fun, da_fun, hyperparameters_activation_function, ...
-                                                        select_optimization_method, step_struct, step_size_method, ...
-                                                        regularization_factor, regularization_type,...
-                                                        nrof_nodes_output,nrof_nodes_vec,nrof_hidden_layers,nrof_total_layers,...
-                                                        nrof_epochs, epoch_count, ...
-                                                        E_abs_square_avg, avg_index, enable_online_plotting)
+    = centralized_optimization__weights_bias__dnn(X_train, Y_train, n_train, mini_batch_size, mini_batch_rng_gen, ...
+    X_test,y_test,n_test,...
+    W, b, bias_enable_flag, batch_norm_flag, ...
+    z, z_prime, h,...
+    a_fun, da_fun, hyperparameters_activation_function, ...
+    select_optimization_method, step_struct, step_size_method, ...
+    regularization_factor, regularization_type,...
+    nrof_nodes_output,nrof_nodes_vec,nrof_hidden_layers,nrof_total_layers,...
+    nrof_epochs, epoch_count, ...
+    E_abs_square_avg, avg_index, enable_online_plotting)
 
 % Initialize
 if epoch_count==1
@@ -23,7 +23,7 @@ for lyr = 1:nrof_hidden_layers
     z_prime{lyr}     = ones(nrof_nodes_vec(lyr+1),mini_batch_size); % output with gradient of the activation
     %diagZ_prime{lyr} = zeros(nrof_nodes_vec(lyr+1), nrof_nodes_vec(lyr+1), mini_batch_size); % output with gradient of the activation
 end
-    
+
 
 %% divide the data set into appropraite nr of mini-batch sizes
 
@@ -57,8 +57,8 @@ for t = 1:nrof_mini_batches % [parallelize this loop for decentralized set-up]
     
     % PREDICTION (feedforward)
     [Y_pred__mini_batch(:,:), h, z, z_prime] = dnn__prediction(X_train__mini_batch, W, b, bias_enable_flag, mini_batch_size, nrof_total_layers, batch_norm_flag, ...
-                                                                          h, z, z_prime, ...
-                                                                          a_fun, da_fun, hyperparameters_activation_function);
+        h, z, z_prime, ...
+        a_fun, da_fun, hyperparameters_activation_function);
     
     % =================================================================
     % error to be utilized for updating Weights & Biases (parameters)
@@ -68,26 +68,37 @@ for t = 1:nrof_mini_batches % [parallelize this loop for decentralized set-up]
     
     
     % logger (for the cost computation)
-    %abs_E_n_per_set(epoch_count, t,:,:) = abs(E_n).';    
+    %abs_E_n_per_set(epoch_count, t,:,:) = abs(E_n).';
     [E_abs_square_avg, avg_index]       = recursive_average(E_abs_square_avg, mean(abs(E_n).^2,2), avg_index);
     
     % =================================================================
     % Update the weights and biases (after gradient computation--back propagation)
-    % =================================================================               
+    % =================================================================
     grad_struct = compute_gradients_for_deep_neural_network_ver2(E_n, X_train__mini_batch, W, b, z, z_prime, mini_batch_size,...
-                                                            nrof_total_layers, regularization_factor, regularization_type);
+        nrof_total_layers, regularization_factor, regularization_type);
+    
         
     % Now update the weights and biases
     switch lower(select_optimization_method)
         case 'sgd' % sequential SGD
             kk_outer            = t; % valid for sequential
             [W, b, step_struct] = sgd(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers);
-        case 'rmsprop'
+        case 'rmsprop' % averaged version of adagrad
             kk_outer            = t; % valid for sequential
-            [W, b, step_struct] = rmsprop(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers);
-        case 'adagrad'
+            % If kk_outer == 1, then create the struct that saves gradients
+            if avg_index == 1
+                grad_prev_struct = struct('layers',{cell(1,nrof_total_layers)});
+%                 'dW_storage',[],'db_storage',[]);
+            end
+            %use here
+            [W, b, step_struct, grad_prev_struct] = rmsprop(W, b, grad_struct, grad_prev_struct, step_struct, step_size_method, kk_outer, avg_index, nrof_total_layers);
+        case 'adagrad' %
             kk_outer            = t; % valid for sequential
-            [W, b, step_struct] = adagrad(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers);
+            % If kk_outer == 1, then create the struct that saves gradients
+            if kk_outer == 1
+                grad_prev_struct = struct('dW_sum',{cell(1,nrof_total_layers)},'db_sum',{cell(1,nrof_total_layers)});
+            end
+            [W, b, step_struct, grad_prev_struct] = adagrad(W, b, grad_struct, grad_prev_struct, step_struct, step_size_method, kk_outer, nrof_total_layers);
         case 'adam'
             error('not supported yet');
     end
@@ -156,8 +167,8 @@ for lyr = 1:nrof_hidden_layers
 end
 
 [Y_pred__test_data] = dnn__prediction(X_test, W, b, bias_enable_flag, size(X_test,2), nrof_total_layers, batch_norm_flag, ...
-                                                                          h, z, z_prime,  ...
-                                                                          a_fun, da_fun, hyperparameters_activation_function);
+    h, z, z_prime,  ...
+    a_fun, da_fun, hyperparameters_activation_function);
 [val, y_pred__final]    = max(Y_pred__test_data, [], 1);
 y_pred__final           = (y_pred__final-1).';
 [ind, val_]             = find(y_pred__final==y_test);
@@ -176,6 +187,15 @@ save(sprintf('result/cent_%s_%dmini_biasEn%d__%dlyr_dnn.mat',...
     select_optimization_method, mini_batch_size, ...
     bias_enable_flag, nrof_total_layers), '-struct', 'res');
 
+% Save previous written information in a file
+file_name = strcat('Display_Information_',select_optimization_method,'.txt');
+fid=fopen(file_name,'a');
+
+fprintf(fid,'Time elapsed (%d epoch) in seconds = %1.2f\n',epoch_count,t_outer);
+fprintf(fid,'classification accuracy (%d epoch) = %1.2f\n\n', epoch_count, classification_accuracy);
+
+% Close the file
+fclose(fid);
 
 end
 %%

@@ -1,7 +1,11 @@
-clear variables;
+% clear variables;
 
+function main_ca6(nrof_epochs,opt_meth_number)
 addpath 'mtimesx_20110223\'; % "borrowed" a fast multiplication of a multi-dimensional matrices % REF: https://se.mathworks.com/matlabcentral/fileexchange/25977-mtimesx-fast-matrix-multiply-with-multi-dimensional-support?s_tid=FX_rc1_behav
-close all;
+% close all;clc;
+%%% INPUT
+% nrof_epochs           - Number of epochs to train.
+% opt_meth_number       - Type of optimization method: 1 is SGD, 2 is Adagrad, and 3 is RMSprop
 
 % =====================================
 % Load the training and test MNIST data
@@ -48,9 +52,19 @@ bias_enable_flag                    = false;
 % ====================================================
 % Optimization for Weights/biases computation
 % ====================================================
-nrof_epochs                = 1000; % number of epochs to train.
+% nrof_epochs                = 1000; % number of epochs to train.
 
-select_optimization_method = 'SGD'; % 'SGD', 'RMSprop' , 'AdaGrad', 'ADAM'
+switch opt_meth_number
+    case 1 % SGD
+        select_optimization_method = 'SGD'; % 'SGD', 'RMSprop' , 'AdaGrad', 'ADAM'
+    case 2 % Adagrad
+        select_optimization_method = 'AdaGrad'; % 'SGD', 'RMSprop' , 'AdaGrad', 'ADAM'
+    case 3 % RMSprop
+        select_optimization_method = 'RMSprop'; % 'SGD', 'RMSprop' , 'AdaGrad', 'ADAM'
+    otherwise
+        disp('No Algorithm with this number');
+end
+        
 mini_batch_size            = 200; %round(n*10/100); % for mini-batch SGD
 mini_batch_rng_gen         = 1256;
 
@@ -62,8 +76,8 @@ step_size_method           = 'fixed';
 %for RMSprop it is adaptive (don't care)
 %for AdaGrad it is adaptive (don't care)
 %for ADAM it is adaptive    (don't care)
-step_size_W_initial        = 0.01; %4e-4; % for all the layers
-step_size_b_initial        = 0.01; %4e-4; % for all the layers
+step_size_W_initial        = 0.1; %4e-4; % for all the layers
+step_size_b_initial        = 0.1; %4e-4; % for all the layers
 
 % other inputs
 enable_online_plotting.inner_loop = false; % to check the progress
@@ -112,7 +126,7 @@ for lyr = 1:nrof_total_layers % +1 layers between input and output
         % scratch
         load(sprintf('result/cent_%s_%dmini_biasEn%d__%dlyr_dnn.mat',...
             select_optimization_method, mini_batch_size, ...
-            bias_enable_flag, nrof_total_layers)); 
+            bias_enable_flag, nrof_total_layers));
         
     elseif(isfile(sprintf('result/interim__cent_%s_%dmini_biasEn%d__%dlyr_dnn.mat',...
             select_optimization_method, mini_batch_size, ...
@@ -121,7 +135,7 @@ for lyr = 1:nrof_total_layers % +1 layers between input and output
         % scratch
         load(sprintf('result/interim__cent_%s_%dmini_biasEn%d__%dlyr_dnn.mat',...
             select_optimization_method, mini_batch_size, ...
-            bias_enable_flag, nrof_total_layers));       
+            bias_enable_flag, nrof_total_layers));
     else
         W{lyr} = rand(nrof_nodes_vec(lyr+1),nrof_nodes_vec(lyr)) - 0.5;
         b{lyr} = rand(nrof_nodes_vec(lyr+1),1) - 0.5;
@@ -152,23 +166,23 @@ for epoch_count = 1: nrof_epochs
     if mod(epoch_count,100)==0; fprintf('nr of epochs so far=%d \n',epoch_count); end
     
     
-    % centralized optimization methods    
+    % centralized optimization methods
     [W, b, grad_struct,centralized__E_abs_square_avg, centralized__avg_index] ...
         = centralized_optimization__weights_bias__dnn(X_train, Y_train, n_train, mini_batch_size, mini_batch_rng_gen+(2*(epoch_count-1)), ...
-                                                    X_test,y_test,n_test,...
-                                                    W, b, bias_enable_flag, batch_norm_flag, ...
-                                                    z, z_prime, h,...
-                                                    a_fun, da_fun, hyperparameters_activation_function, ...
-                                                    select_optimization_method, step_struct, step_size_method, ...
-                                                    regularization_factor, regularization_type,...
-                                                    nrof_nodes_output,nrof_nodes_vec,nrof_hidden_layers,nrof_total_layers,...
-                                                    nrof_epochs, epoch_count, ...
-                                                    centralized__E_abs_square_avg, centralized__avg_index, enable_online_plotting);
-
+        X_test,y_test,n_test,...
+        W, b, bias_enable_flag, batch_norm_flag, ...
+        z, z_prime, h,...
+        a_fun, da_fun, hyperparameters_activation_function, ...
+        select_optimization_method, step_struct, step_size_method, ...
+        regularization_factor, regularization_type,...
+        nrof_nodes_output,nrof_nodes_vec,nrof_hidden_layers,nrof_total_layers,...
+        nrof_epochs, epoch_count, ...
+        centralized__E_abs_square_avg, centralized__avg_index, enable_online_plotting);
+    
     
 end
 
 
-
+end
 
 

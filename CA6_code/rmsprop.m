@@ -1,5 +1,5 @@
 %% (mini-batch) Root Mean Squared step sizes (RMSprop)
-function [W, b, step_struct] = rmsprop(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers)
+function [W, b, step_struct, grad_prev_struct] = rmsprop(W, b, grad_struct, grad_prev_struct, step_struct, step_size_method, kk_outer, avg_index, nrof_total_layers)
 
 % Define epsilon value for avoiding division by zero
 epsilon = 1e-8;
@@ -38,40 +38,40 @@ for lyr = 1:nrof_total_layers
     
     % If initial iteration, consider only current gradient, otherwise get
     % all of them
-    if kk_outer == 1
+    if avg_index == 1
         % Save this gradient to be used for the next iterations
         % Evaluating the updated matrix that sums previous gradient outer
         % products - Weights and biases
         dW_update = (1-gamma)*(dW_prev*dW_prev');
         db_update = (1-gamma)*(db_prev*db_prev');
         % Create structs to save data
-        grad_struct.dW_storage = zeros(size_grad_squared,size_grad_squared,omega);
-        grad_struct.dW_storage(:,:,kk_outer) = dW_prev*dW_prev';
-        grad_struct.db_storage = zeros(size_grad_squared,size_grad_squared,omega);
-        grad_struct.db_storage(:,:,kk_outer) = db_prev*db_prev';
+        grad_prev_struct.layers{lyr}.dW_storage = zeros(size_grad_squared,size_grad_squared,omega);
+        grad_prev_struct.layers{lyr}.dW_storage(:,:,avg_index) = dW_prev*dW_prev';
+        grad_prev_struct.layers{lyr}.db_storage = zeros(size_grad_squared,size_grad_squared,omega);
+        grad_prev_struct.layers{lyr}.db_storage(:,:,avg_index) = db_prev*db_prev';
     else
-        if kk_outer <= omega
+        if avg_index <= omega
             % Get cells to be averaged
-            dW_average = sum(grad_struct.dW_storage(:,:,1:kk_outer-1),3)/(kk_outer-1);
-            db_average = sum(grad_struct.db_storage(:,:,1:kk_outer-1),3)/(kk_outer-1);
+            dW_average = sum(grad_prev_struct.layers{lyr}.dW_storage(:,:,1:avg_index-1),3)/(avg_index-1);
+            db_average = sum(grad_prev_struct.layers{lyr}.db_storage(:,:,1:avg_index-1),3)/(avg_index-1);
         else
             % Evaluate average of previous gradients
-            dW_average = mean(grad_struct.dW_storage,3);
-            db_average = mean(grad_struct.db_storage,3);
+            dW_average = mean(grad_prev_struct.layers{lyr}.dW_storage,3);
+            db_average = mean(grad_prev_struct.layers{lyr}.db_storage,3);
         end
         % Update the iterates
         dW_update = gamma*dW_average + (1-gamma)*(dW_prev*dW_prev');
         db_update = gamma*db_average + (1-gamma)*(db_prev*db_prev');
         % Save the current gradient based on the number of accumulated
         % points
-        current_omega = mod(kk_outer,omega);
+        current_omega = mod(avg_index,omega);
         if current_omega == 0 % this means current_omega should be equal to omega
             current_omega = omega;
         end
         % Evaluating the updated matrix that sums previous gradient outer
         % products - Weights and biases
-        grad_struct.dW_storage(:,:,current_omega) = dW_prev*dW_prev';
-        grad_struct.db_storage(:,:,current_omega) = db_prev*db_prev';
+        grad_prev_struct.layers{lyr}.dW_storage(:,:,current_omega) = dW_prev*dW_prev';
+        grad_prev_struct.layers{lyr}.db_storage(:,:,current_omega) = db_prev*db_prev';
         
     end
     

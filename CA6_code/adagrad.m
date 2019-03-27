@@ -1,5 +1,5 @@
 %% (mini-batch) Adaptive step sizes (AdaGrad)
-function [W, b, step_struct] = adagrad(W, b, grad_struct, step_struct, step_size_method, kk_outer, nrof_total_layers)
+function [W, b, step_struct, grad_prev_struct] = adagrad(W, b, grad_struct, grad_prev_struct, step_struct, step_size_method, kk_outer, nrof_total_layers)
 
 % Define epsilon value for avoiding division by zero
 epsilon = 1e-8;
@@ -34,23 +34,23 @@ for lyr = 1:nrof_total_layers
     if kk_outer == 1
         % Evaluating the updated matrix that sums previous gradient outer
         % products - Weights and biases
-        dW_sum_prev = dW_prev*dW_prev';
-        grad_struct.dW_sum_prev{lyr} = dW_sum_prev;
-        db_sum_prev = db_prev*db_prev';
-        grad_struct.db_sum_prev{lyr} = db_sum_prev;
+        dW_sum = dW_prev*dW_prev';
+        grad_prev_struct.dW_sum{lyr} = dW_sum;
+        db_sum = db_prev*db_prev';
+        grad_prev_struct.db_sum{lyr} = db_sum;
     else
         % Evaluating the updated matrix that sums previous gradient outer
         % products - Weights and biases
-        dW_sum_prev = dW_prev*dW_prev' + grad_struct.dW_sum_prev{lyr};
-        grad_struct.dW_sum_prev{lyr} = dW_sum_prev;
-        db_sum_prev = db_prev*db_prev' + grad_struct.db_sum_prev;
-        grad_struct.db_sum_prev{lyr} = db_sum_prev;
+        dW_sum = dW_prev*dW_prev' + grad_prev_struct.dW_sum{lyr};
+        grad_prev_struct.dW_sum{lyr} = dW_sum;
+        db_sum = db_prev*db_prev' + grad_prev_struct.db_sum{lyr};
+        grad_prev_struct.db_sum{lyr} = db_sum;
     end
     
-    % Obtain matrix "B = epsilon + sqrt(dW_sum_prev)^-1" for weights and bias
-    Bmat_W_condition = epsilon + diag(dW_sum_prev);
+    % Obtain matrix "B = epsilon + sqrt(dW_sum)^-1" for weights and bias
+    Bmat_W_condition = epsilon + diag(dW_sum);
     Bmat_W_condition = bsxfun(@rdivide, ones(size(Bmat_W_condition)), Bmat_W_condition);
-    Bmat_b_condition = epsilon + diag(db_sum_prev);
+    Bmat_b_condition = epsilon + diag(db_sum);
     Bmat_b_condition = bsxfun(@rdivide, ones(size(Bmat_b_condition)), Bmat_b_condition);
     
     % Update Weights and biases
